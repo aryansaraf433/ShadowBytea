@@ -1,34 +1,22 @@
-import ytSearch from 'yt-search';
-import youtubedl from 'youtube-dl-exec';
-import axios from 'axios';
+import play from 'play-dl';
+import fs from 'fs';
 
 async function test() {
   try {
-    console.log('Searching...');
-    const searchResult = await ytSearch('blinding lights');
-    const video = searchResult.videos[0];
-    console.log('Found:', video.title);
-    
-    console.log('Getting JSON...');
-    const info = await youtubedl(video.url, {
-      dumpSingleJson: true,
-      noCheckCertificates: true,
-      noWarnings: true,
-      preferFreeFormats: true
-    });
-    
-    // Find best audio format
-    const audioFormats = info.formats.filter(f => f.acodec !== 'none' && f.vcodec === 'none');
-    const bestAudio = audioFormats.sort((a, b) => (b.abr || 0) - (a.abr || 0))[0];
-    
-    console.log('Direct URL:', bestAudio.url);
-    console.log('Format:', bestAudio.ext);
+    await play.getFreeClientID().then((clientID) => {
+        play.setToken({ soundcloud : { client_id : clientID } })
+    })
 
-    // Test downloading a tiny bit
-    const response = await axios.get(bestAudio.url, { responseType: 'stream' });
-    response.data.on('data', chunk => {
-        console.log(`Received ${chunk.length} bytes`);
-        process.exit(0);
+    console.log('Searching Soundcloud...');
+    const searchResult = await play.search('blinding lights', { source: { soundcloud: 'tracks' }, limit: 1 });
+    const track = searchResult[0];
+    
+    console.log('Getting stream...');
+    const stream = await play.stream(track.url);
+    
+    stream.stream.on('data', (chunk) => {
+      console.log(`Received ${chunk.length} bytes from play-dl stream!`);
+      process.exit(0);
     });
 
   } catch (e) {

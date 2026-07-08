@@ -1,8 +1,7 @@
 import axios from 'axios';
 import FormData from 'form-data';
 import { search } from 'duck-duck-scrape';
-import ytSearch from 'yt-search';
-import youtubedl from 'youtube-dl-exec';
+import play from 'play-dl';
 import { config } from './config.js';
 import { logger } from './logger.js';
 
@@ -135,37 +134,30 @@ export const features = {
    */
   async getMusicStream(query) {
     try {
-      const searchResult = await ytSearch(query);
-      if (!searchResult.videos || searchResult.videos.length === 0) {
+      // Authenticate with SoundCloud (gets a free client ID automatically)
+      await play.getFreeClientID().then((clientID) => {
+        play.setToken({ soundcloud : { client_id : clientID } });
+      });
+
+      // Search SoundCloud
+      const searchResult = await play.search(query, { source: { soundcloud: 'tracks' }, limit: 1 });
+      if (!searchResult || searchResult.length === 0) {
         throw new Error('No song found for that query.');
       }
       
-      const video = searchResult.videos[0];
+      const track = searchResult[0];
       
-      const info = await youtubedl(video.url, {
-        dumpSingleJson: true,
-        noCheckCertificates: true,
-        noWarnings: true,
-        preferFreeFormats: true
-      });
-      
-      // Find best audio format
-      const audioFormats = info.formats.filter(f => f.acodec !== 'none' && f.vcodec === 'none');
-      const bestAudio = audioFormats.sort((a, b) => (b.abr || 0) - (a.abr || 0))[0];
-      
-      if (!bestAudio) throw new Error('Could not extract audio stream.');
-
-      // Stream via axios to bypass IP locks on Telegram
-      const response = await axios.get(bestAudio.url, { responseType: 'stream' });
+      // Get the raw audio stream
+      const stream = await play.stream(track.url);
       
       return {
-        stream: response.data,
-        filename: `audio.${bestAudio.ext || 'm4a'}`,
-        title: video.title,
-        duration: video.timestamp,
-        author: video.author.name,
-        thumbnail: video.thumbnail,
-        url: video.url
+        stream: stream.stream,
+        filename: 'audio.mp3', // Telegraf will interpret the stream as mp3
+        title: track.name,
+        duration: track.durationInSec ? `${Math.floor(track.durationInSec / 60)}:${(track.durationInSec % 60).toString().padStart(2, '0')}` : 'Unknown',
+        author: track.user.name,
+        thumbnail: track.thumbnail,
+        url: track.url
       };
     } catch (error) {
       logger.error(`Music search error: ${error.message}`);
