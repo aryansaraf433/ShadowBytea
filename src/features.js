@@ -2,7 +2,7 @@ import axios from 'axios';
 import FormData from 'form-data';
 import { search } from 'duck-duck-scrape';
 import ytSearch from 'yt-search';
-import ytdl from '@distube/ytdl-core';
+import youtubedl from 'youtube-dl-exec';
 import { config } from './config.js';
 import { logger } from './logger.js';
 
@@ -141,15 +141,26 @@ export const features = {
       }
       
       const video = searchResult.videos[0];
-      // Note: Setting highWaterMark to handle slow networks and memory issues
-      const stream = ytdl(video.url, { 
-        filter: 'audioonly', 
-        quality: 'highestaudio',
-        highWaterMark: 1 << 25 
+      
+      const info = await youtubedl(video.url, {
+        dumpSingleJson: true,
+        noCheckCertificates: true,
+        noWarnings: true,
+        preferFreeFormats: true
       });
       
+      // Find best audio format
+      const audioFormats = info.formats.filter(f => f.acodec !== 'none' && f.vcodec === 'none');
+      const bestAudio = audioFormats.sort((a, b) => (b.abr || 0) - (a.abr || 0))[0];
+      
+      if (!bestAudio) throw new Error('Could not extract audio stream.');
+
+      // Stream via axios to bypass IP locks on Telegram
+      const response = await axios.get(bestAudio.url, { responseType: 'stream' });
+      
       return {
-        stream,
+        stream: response.data,
+        filename: `audio.${bestAudio.ext || 'm4a'}`,
         title: video.title,
         duration: video.timestamp,
         author: video.author.name,

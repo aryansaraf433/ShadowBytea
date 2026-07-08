@@ -108,7 +108,7 @@ export function setupCommands(bot) {
       const songData = await features.getMusicStream(query);
       
       await ctx.replyWithAudio(
-        { source: songData.stream },
+        { source: songData.stream, filename: songData.filename },
         { 
           caption: `🎵 **${songData.title}**\n👤 ${songData.author}\n⏱️ ${songData.duration}\n🔗 [YouTube Link](${songData.url})`, 
           parse_mode: 'Markdown',
