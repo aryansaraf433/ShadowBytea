@@ -2,13 +2,35 @@ import { Telegraf } from 'telegraf';
 import { config } from './config.js';
 import { logger } from './logger.js';
 import { setupCommands } from './commands.js';
-import { generateResponse } from './ai.js';
-import { historyManager } from './history.js';
 import { splitMessage } from './utils.js';
 import { features } from './features.js';
 
+// Keep track of users currently waiting for a response
+const activeUsers = new Set();
+
 export function createBot() {
   const bot = new Telegraf(config.BOT_TOKEN);
+
+  // Global single-message lock middleware
+  bot.use(async (ctx, next) => {
+    if (!ctx.from) return next();
+    const userId = ctx.from.id;
+    
+    // Allow stopremind to always work
+    if (ctx.message && ctx.message.text && ctx.message.text.startsWith('/stopremind')) {
+      return next();
+    }
+
+    if (activeUsers.has(userId)) {
+      return ctx.reply('⏳ I am still processing your last request. Please wait a moment!', { reply_to_message_id: ctx.message?.message_id }).catch(() => {});
+    }
+    activeUsers.add(userId);
+    try {
+      await next();
+    } finally {
+      activeUsers.delete(userId);
+    }
+  });
 
   // Setup commands
   setupCommands(bot);
