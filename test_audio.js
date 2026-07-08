@@ -1,5 +1,4 @@
 import play from 'play-dl';
-import fs from 'fs';
 
 async function test() {
   try {
@@ -14,9 +13,24 @@ async function test() {
     console.log('Getting stream...');
     const stream = await play.stream(track.url);
     
+    const chunks = [];
+    let downloaded = 0;
+    
     stream.stream.on('data', (chunk) => {
-      console.log(`Received ${chunk.length} bytes from play-dl stream!`);
+      chunks.push(chunk);
+      downloaded += chunk.length;
+      console.log(`Downloaded: ${(downloaded / 1024 / 1024).toFixed(2)} MB`);
+    });
+
+    stream.stream.on('end', () => {
+      console.log('Finished downloading completely!');
+      console.log('Total size:', (downloaded / 1024 / 1024).toFixed(2), 'MB');
       process.exit(0);
+    });
+
+    stream.stream.on('error', (err) => {
+      console.error('Stream Error:', err);
+      process.exit(1);
     });
 
   } catch (e) {

@@ -150,9 +150,16 @@ export const features = {
       // Get the raw audio stream
       const stream = await play.stream(track.url);
       
+      // Buffer the entire stream in memory to avoid Telegram "socket hang up" timeouts
+      const chunks = [];
+      for await (const chunk of stream.stream) {
+        chunks.push(chunk);
+      }
+      const audioBuffer = Buffer.concat(chunks);
+      
       return {
-        stream: stream.stream,
-        filename: 'audio.mp3', // Telegraf will interpret the stream as mp3
+        stream: audioBuffer,
+        filename: 'audio.mp3', // Telegraf will interpret the buffer as mp3
         title: track.name,
         duration: track.durationInSec ? `${Math.floor(track.durationInSec / 60)}:${(track.durationInSec % 60).toString().padStart(2, '0')}` : 'Unknown',
         author: track.user.name,
