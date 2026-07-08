@@ -7,6 +7,7 @@ dotenv.config();
 export const config = {
   BOT_TOKEN: process.env.BOT_TOKEN,
   OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY,
+  GROQ_API_KEY: process.env.GROQ_API_KEY,
   MODEL: process.env.MODEL || 'openai/gpt-4.1-mini',
   
   // Advanced configuration

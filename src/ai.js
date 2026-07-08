@@ -3,31 +3,32 @@ import { config } from './config.js';
 import { logger } from './logger.js';
 import { historyManager } from './history.js';
 
-const SYSTEM_PROMPT = `You are Kaptaan 🎓.
+function getSystemPrompt(persona, searchContext = '') {
+  let basePrompt = '';
 
+  switch (persona) {
+    case 'chill':
+      basePrompt = 'You are Kaptaan, a super chill AI bro. You help out but keep it casual, use slang, and never sound like a robot.';
+      break;
+    case 'strict':
+      basePrompt = 'You are Professor Kaptaan, a strict and rigorous academic AI. You expect excellence, explain things formally, and do not tolerate laziness.';
+      break;
+    case 'hacker':
+      basePrompt = 'You are k4pt44n, an elite cybersecurity AI. You speak in leetspeak occasionally, focus on security, and act like you are in the mainframe.';
+      break;
+    default:
+      basePrompt = `You are Kaptaan 🎓.
 You are an intelligent, friendly and accurate AI assistant.
+You help with: Coding, Mathematics, Science, School, College, Linux, Windows, AI, Cybersecurity, Web Development, Career Guidance, Productivity.
+Explain difficult concepts simply. Never invent facts. Always format nicely using Markdown.`;
+  }
 
-You help with:
-* Coding
-* Mathematics
-* Science
-* School
-* College
-* Linux
-* Windows
-* AI
-* Cybersecurity
-* Web Development
-* Career Guidance
-* Productivity
+  if (searchContext) {
+    basePrompt += `\n\n=== RECENT WEB SEARCH CONTEXT ===\n${searchContext}\nUse this context to answer the user's latest query accurately.`;
+  }
 
-Explain difficult concepts simply.
-
-Never invent facts.
-
-If unsure, admit uncertainty.
-
-Always format nicely using Markdown.`;
+  return basePrompt;
+}
 
 const openRouterClient = axios.create({
   baseURL: 'https://openrouter.ai/api/v1',
@@ -44,18 +45,22 @@ const openRouterClient = axios.create({
  * Sends a conversation to OpenRouter and gets a response.
  * @param {string|number} userId 
  * @param {string} userMessage 
+ * @param {string} [searchContext]
  * @returns {Promise<string>}
  */
-export async function generateResponse(userId, userMessage) {
+export async function generateResponse(userId, userMessage, searchContext = '') {
   // Add user message to history
   historyManager.addMessage(userId, 'user', userMessage);
 
   // Get full conversation history
   const userHistory = historyManager.getHistory(userId);
 
-  // Construct payload with system prompt
+  // Construct payload with dynamic system prompt
+  const persona = historyManager.getPersona(userId);
+  const systemContent = getSystemPrompt(persona, searchContext);
+
   const messages = [
-    { role: 'system', content: SYSTEM_PROMPT },
+    { role: 'system', content: systemContent },
     ...userHistory
   ];
 

@@ -5,12 +5,59 @@ import { setupCommands } from './commands.js';
 import { generateResponse } from './ai.js';
 import { historyManager } from './history.js';
 import { splitMessage } from './utils.js';
+import { features } from './features.js';
 
 export function createBot() {
   const bot = new Telegraf(config.BOT_TOKEN);
 
   // Setup commands
   setupCommands(bot);
+
+  // Handle Voice Messages
+  bot.on('voice', async (ctx) => {
+    const userId = ctx.from.id;
+    historyManager.trackUser(ctx);
+    historyManager.incrementMessageCount(userId);
+
+    await ctx.sendChatAction('typing');
+
+    try {
+      if (!config.GROQ_API_KEY) {
+        return ctx.reply('⚠️ Voice transcriptions are disabled because GROQ_API_KEY is not configured in the environment variables.');
+      }
+
+      // 1. Get file link from Telegram
+      const fileId = ctx.message.voice.file_id;
+      const fileLink = await ctx.telegram.getFileLink(fileId);
+      
+      await ctx.reply('🎧 Listening to your voice note...');
+
+      // 2. Transcribe using Groq Whisper
+      const transcript = await features.transcribeAudio(fileLink.href);
+      await ctx.reply(`🎤 **Transcription:**\n_${transcript}_`, { parse_mode: 'Markdown' });
+
+      // 3. Generate AI response
+      const typingInterval = setInterval(() => {
+        ctx.sendChatAction('typing').catch(() => {});
+      }, 4000);
+
+      const reply = await generateResponse(userId, transcript);
+      clearInterval(typingInterval);
+
+      const chunks = splitMessage(reply);
+      for (const chunk of chunks) {
+        try {
+          await ctx.reply(chunk, { parse_mode: 'Markdown' });
+        } catch (e) {
+          await ctx.reply(chunk);
+        }
+      }
+
+    } catch (error) {
+      logger.error(`Error processing voice note: ${error.message}`);
+      await ctx.reply('An error occurred while processing your voice note.');
+    }
+  });
 
   // Handle all other text messages
   bot.on('text', async (ctx) => {

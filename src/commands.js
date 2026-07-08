@@ -1,5 +1,7 @@
 import { historyManager } from './history.js';
 import { config } from './config.js';
+import { features } from './features.js';
+import fs from 'fs';
 
 // Store active reminders in memory
 const activeReminders = {};
@@ -19,6 +21,11 @@ export function setupCommands(bot) {
 /start - Displays welcome message.
 /help - Shows every available feature.
 /new - Clears current conversation history.
+/imagine <prompt> - Generates an image.
+/mode <chill|strict|hacker|default> - Change AI persona.
+/run <lang> <code> - Run code (e.g. /run py print(1))
+/search <query> - Search the live web.
+/export - Download your conversation as a file.
 /remind <seconds> <message> - Sets a recurring reminder.
 /stopremind - Stops your active reminder.
 /model - Shows currently active AI model.
@@ -76,6 +83,69 @@ export function setupCommands(bot) {
     } else {
       return ctx.reply('You don\'t have any active reminders.');
     }
+  });
+
+  bot.command('imagine', async (ctx) => {
+    historyManager.trackUser(ctx);
+    const prompt = ctx.message.text.split(' ').slice(1).join(' ');
+    if (!prompt) return ctx.reply('⚠️ Please provide a prompt. Example: `/imagine a cyberpunk city`', { parse_mode: 'Markdown' });
+    
+    await ctx.sendChatAction('upload_photo');
+    const imageUrl = features.generateImage(prompt);
+    return ctx.replyWithPhoto(imageUrl, { caption: `🎨 **Generated:** ${prompt}`, parse_mode: 'Markdown' });
+  });
+
+  bot.command('mode', (ctx) => {
+    historyManager.trackUser(ctx);
+    const mode = ctx.message.text.split(' ')[1];
+    const validModes = ['default', 'chill', 'strict', 'hacker'];
+    
+    if (!mode || !validModes.includes(mode.toLowerCase())) {
+      return ctx.reply(`⚠️ Invalid mode. Please choose one of: ${validModes.join(', ')}\nExample: \`/mode hacker\``, { parse_mode: 'Markdown' });
+    }
+    
+    historyManager.setPersona(ctx.from.id, mode.toLowerCase());
+    return ctx.reply(`🎭 Persona successfully changed to: **${mode.toUpperCase()}**`, { parse_mode: 'Markdown' });
+  });
+
+  bot.command('run', async (ctx) => {
+    historyManager.trackUser(ctx);
+    const args = ctx.message.text.split(' ').slice(1);
+    const lang = args[0];
+    const code = args.slice(1).join(' ');
+
+    if (!lang || !code) return ctx.reply('⚠️ Syntax: `/run <language> <code>`\nExample: `/run py print("hello")`', { parse_mode: 'Markdown' });
+    
+    await ctx.sendChatAction('typing');
+    const output = await features.executeCode(lang, code);
+    return ctx.reply(`💻 **Output:**\n\`\`\`text\n${output}\n\`\`\``, { parse_mode: 'Markdown' });
+  });
+
+  bot.command('search', async (ctx) => {
+    historyManager.trackUser(ctx);
+    const query = ctx.message.text.split(' ').slice(1).join(' ');
+    if (!query) return ctx.reply('⚠️ Please provide a query. Example: `/search latest tech news`', { parse_mode: 'Markdown' });
+
+    await ctx.sendChatAction('typing');
+    const results = await features.webSearch(query);
+    return ctx.reply(results, { parse_mode: 'Markdown' });
+  });
+
+  bot.command('export', async (ctx) => {
+    historyManager.trackUser(ctx);
+    const userId = ctx.from.id;
+    const history = historyManager.getHistory(userId);
+    
+    if (history.length === 0) return ctx.reply('⚠️ Your conversation history is empty.');
+
+    const markdown = features.exportHistory(history);
+    const buffer = Buffer.from(markdown, 'utf-8');
+    
+    await ctx.sendChatAction('upload_document');
+    return ctx.replyWithDocument({
+      source: buffer,
+      filename: `Chat_Export_${userId}.md`
+    });
   });
 
   bot.command('new', (ctx) => {

@@ -60,16 +60,37 @@ export const historyManager = {
         username: from.username || 'unknown',
         firstName: from.first_name || 'unknown',
         joinedAt: new Date().toISOString(),
+        persona: 'default'
       };
     } else {
       // Update info in case username or name changed
       users[userId].username = from.username || users[userId].username;
       users[userId].firstName = from.first_name || users[userId].firstName;
+      if (!users[userId].persona) users[userId].persona = 'default';
     }
     
     users[userId].lastActive = new Date().toISOString();
     
     saveData(USERS_FILE, users);
+  },
+
+  /**
+   * Sets the persona/mode for a user.
+   */
+  setPersona(userId, persona) {
+    userId = userId.toString();
+    if (users[userId]) {
+      users[userId].persona = persona;
+      saveData(USERS_FILE, users);
+    }
+  },
+
+  /**
+   * Gets the persona/mode for a user.
+   */
+  getPersona(userId) {
+    userId = userId.toString();
+    return users[userId]?.persona || 'default';
   },
 
   /**
