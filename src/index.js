@@ -1,6 +1,15 @@
+import express from 'express';
 import { validateConfig } from './config.js';
 import { logger } from './logger.js';
 import { createBot } from './bot.js';
+
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+// Dummy route for Render's health checks and UptimeRobot
+app.get('/', (req, res) => {
+  res.send('Kaptaan Bot is running! 🎓');
+});
 
 async function bootstrap() {
   try {
@@ -15,6 +24,11 @@ async function bootstrap() {
     bot.launch();
     
     logger.info('Kaptaan Bot is successfully running and polling for updates! 🚀');
+
+    // 4. Start Express Server
+    app.listen(PORT, () => {
+      logger.info(`Dummy web server listening on port ${PORT} (Useful for 24/7 pings)`);
+    });
 
     // Enable graceful stop
     process.once('SIGINT', () => {
