@@ -1,7 +1,10 @@
 import { historyManager } from './history.js';
 import { config } from './config.js';
 import { features } from './features.js';
+import axios from 'axios';
+import FormData from 'form-data';
 import fs from 'fs';
+import { config } from './config.js';
 
 // Store active reminders in memory
 const activeReminders = {};
@@ -108,15 +111,20 @@ export function setupCommands(bot) {
       const songData = await features.getMusicStream(query);
       
       try {
-        await ctx.replyWithAudio(
-          { source: songData.streamPath, filename: songData.filename },
-          { 
-            caption: `🎵 **${songData.title}**\n👤 ${songData.author}\n⏱️ ${songData.duration}\n🔗 [SoundCloud Link](${songData.url})`, 
-            parse_mode: 'Markdown',
-            title: songData.title,
-            performer: songData.author
-          }
-        );
+        const formData = new FormData();
+        formData.append('chat_id', ctx.chat.id);
+        formData.append('audio', fs.createReadStream(songData.streamPath), songData.filename);
+        formData.append('caption', `🎵 **${songData.title}**\n👤 ${songData.author}\n⏱️ ${songData.duration}\n🔗 [SoundCloud Link](${songData.url})`);
+        formData.append('parse_mode', 'Markdown');
+        formData.append('title', songData.title);
+        formData.append('performer', songData.author);
+
+        await axios.post(`https://api.telegram.org/bot${config.BOT_TOKEN}/sendAudio`, formData, {
+          headers: formData.getHeaders(),
+          maxBodyLength: Infinity,
+          maxContentLength: Infinity,
+          timeout: 300000 // 5 minutes timeout to prevent socket hang up
+        });
       } finally {
         // Always clean up the temp file
         if (fs.existsSync(songData.streamPath)) {
