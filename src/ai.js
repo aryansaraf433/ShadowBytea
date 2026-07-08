@@ -80,6 +80,10 @@ export async function generateResponse(userId, userMessage, searchContext = '') 
       const latency = Date.now() - startTime;
       logger.info(`Received response from OpenRouter in ${latency}ms`);
 
+      if (!response.data || !response.data.choices || response.data.choices.length === 0) {
+        throw new Error(`Invalid response format from OpenRouter: ${JSON.stringify(response.data)}`);
+      }
+
       const reply = response.data.choices[0].message.content;
 
       // Add assistant response to history
@@ -96,7 +100,7 @@ export async function generateResponse(userId, userMessage, searchContext = '') 
       }
 
       if (attempt > maxRetries) {
-        return "I apologize, but I am currently experiencing connection issues with my servers. Please try again in a moment. 🙏";
+        return "I apologize, but I am currently experiencing connection issues with my AI servers or the selected model is offline. Please try again in a moment. 🙏";
       }
       
       logger.info('Retrying request...');
