@@ -1,6 +1,8 @@
 import axios from 'axios';
 import FormData from 'form-data';
 import { search } from 'duck-duck-scrape';
+import ytSearch from 'yt-search';
+import ytdl from '@distube/ytdl-core';
 import { config } from './config.js';
 import { logger } from './logger.js';
 
@@ -126,5 +128,37 @@ export const features = {
     }
     
     return markdown;
+  },
+
+  /**
+   * Searches for a song on YouTube and returns its audio stream
+   */
+  async getMusicStream(query) {
+    try {
+      const searchResult = await ytSearch(query);
+      if (!searchResult.videos || searchResult.videos.length === 0) {
+        throw new Error('No song found for that query.');
+      }
+      
+      const video = searchResult.videos[0];
+      // Note: Setting highWaterMark to handle slow networks and memory issues
+      const stream = ytdl(video.url, { 
+        filter: 'audioonly', 
+        quality: 'highestaudio',
+        highWaterMark: 1 << 25 
+      });
+      
+      return {
+        stream,
+        title: video.title,
+        duration: video.timestamp,
+        author: video.author.name,
+        thumbnail: video.thumbnail,
+        url: video.url
+      };
+    } catch (error) {
+      logger.error(`Music search error: ${error.message}`);
+      throw error;
+    }
   }
 };

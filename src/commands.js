@@ -21,6 +21,7 @@ export function setupCommands(bot) {
 /start - Displays welcome message.
 /help - Shows every available feature.
 /new - Clears current conversation history.
+/play <song name> - Plays music!
 /imagine <prompt> - Generates an image.
 /mode <chill|strict|hacker|default> - Change AI persona.
 /run <lang> <code> - Run code (e.g. /run py print(1))
@@ -93,6 +94,38 @@ export function setupCommands(bot) {
     await ctx.sendChatAction('upload_photo');
     const imageUrl = features.generateImage(prompt);
     return ctx.replyWithPhoto(imageUrl, { caption: `🎨 **Generated:** ${prompt}`, parse_mode: 'Markdown' });
+  });
+
+  bot.command('play', async (ctx) => {
+    historyManager.trackUser(ctx);
+    const query = ctx.message.text.split(' ').slice(1).join(' ');
+    if (!query) return ctx.reply('⚠️ Please provide a song name. Example: `/play blinding lights`', { parse_mode: 'Markdown' });
+
+    const statusMsg = await ctx.reply('🔍 Searching and preparing your song... 🎧');
+    await ctx.sendChatAction('record_voice');
+
+    try {
+      const songData = await features.getMusicStream(query);
+      
+      await ctx.replyWithAudio(
+        { source: songData.stream },
+        { 
+          caption: `🎵 **${songData.title}**\n👤 ${songData.author}\n⏱️ ${songData.duration}\n🔗 [YouTube Link](${songData.url})`, 
+          parse_mode: 'Markdown',
+          title: songData.title,
+          performer: songData.author
+        }
+      );
+      
+      return ctx.telegram.deleteMessage(ctx.chat.id, statusMsg.message_id).catch(() => {});
+    } catch (error) {
+      return ctx.telegram.editMessageText(
+        ctx.chat.id,
+        statusMsg.message_id,
+        undefined,
+        `❌ Sorry, I couldn't play that song right now: ${error.message}`
+      );
+    }
   });
 
   bot.command('mode', (ctx) => {
