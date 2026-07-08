@@ -4,7 +4,6 @@ import { features } from './features.js';
 import axios from 'axios';
 import FormData from 'form-data';
 import fs from 'fs';
-import { config } from './config.js';
 
 // Store active reminders in memory
 const activeReminders = {};
