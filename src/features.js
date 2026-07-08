@@ -56,12 +56,13 @@ export const features = {
     }
 
     try {
-      // 1. Download the file from Telegram
-      const audioResponse = await axios.get(fileUrl, { responseType: 'stream' });
+      // 1. Download the file from Telegram as a buffer to avoid stream length issues with form-data
+      const audioResponse = await axios.get(fileUrl, { responseType: 'arraybuffer' });
+      const audioBuffer = Buffer.from(audioResponse.data);
 
       // 2. Prepare Form Data for Groq
       const form = new FormData();
-      form.append('file', audioResponse.data, 'audio.ogg');
+      form.append('file', audioBuffer, { filename: 'audio.ogg', contentType: 'audio/ogg' });
       form.append('model', 'whisper-large-v3'); // Groq's whisper model
 
       // 3. Send to Groq
@@ -74,6 +75,9 @@ export const features = {
 
       return transcriptResponse.data.text;
     } catch (error) {
+      if (error.response) {
+         logger.error(`Groq API Error: ${JSON.stringify(error.response.data)}`);
+      }
       logger.error(`Transcription error: ${error.message}`);
       throw new Error('Failed to transcribe audio.');
     }
