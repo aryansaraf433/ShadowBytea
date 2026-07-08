@@ -107,15 +107,22 @@ export function setupCommands(bot) {
     try {
       const songData = await features.getMusicStream(query);
       
-      await ctx.replyWithAudio(
-        { source: songData.stream, filename: songData.filename },
-        { 
-          caption: `🎵 **${songData.title}**\n👤 ${songData.author}\n⏱️ ${songData.duration}\n🔗 [YouTube Link](${songData.url})`, 
-          parse_mode: 'Markdown',
-          title: songData.title,
-          performer: songData.author
+      try {
+        await ctx.replyWithAudio(
+          { source: songData.streamPath, filename: songData.filename },
+          { 
+            caption: `🎵 **${songData.title}**\n👤 ${songData.author}\n⏱️ ${songData.duration}\n🔗 [SoundCloud Link](${songData.url})`, 
+            parse_mode: 'Markdown',
+            title: songData.title,
+            performer: songData.author
+          }
+        );
+      } finally {
+        // Always clean up the temp file
+        if (fs.existsSync(songData.streamPath)) {
+          fs.unlinkSync(songData.streamPath);
         }
-      );
+      }
       
       return ctx.telegram.deleteMessage(ctx.chat.id, statusMsg.message_id).catch(() => {});
     } catch (error) {

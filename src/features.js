@@ -4,6 +4,8 @@ import { search } from 'duck-duck-scrape';
 import play from 'play-dl';
 import { config } from './config.js';
 import { logger } from './logger.js';
+import fs from 'fs';
+import path from 'path';
 
 export const features = {
   /**
@@ -150,16 +152,22 @@ export const features = {
       // Get the raw audio stream
       const stream = await play.stream(track.url);
       
-      // Buffer the entire stream in memory to avoid Telegram "socket hang up" timeouts
-      const chunks = [];
+      // Save stream to disk temporarily instead of a memory buffer
+      // This prevents Telegraf/form-data from hanging on large buffers
+      const tempPath = path.join(process.cwd(), `audio_${Date.now()}.mp3`);
+      const writeStream = fs.createWriteStream(tempPath);
+      
       for await (const chunk of stream.stream) {
-        chunks.push(chunk);
+        writeStream.write(chunk);
       }
-      const audioBuffer = Buffer.concat(chunks);
+      writeStream.end();
+      
+      // Wait for it to finish saving
+      await new Promise(resolve => writeStream.on('finish', resolve));
       
       return {
-        stream: audioBuffer,
-        filename: 'audio.mp3', // Telegraf will interpret the buffer as mp3
+        streamPath: tempPath,
+        filename: 'audio.mp3',
         title: track.name,
         duration: track.durationInSec ? `${Math.floor(track.durationInSec / 60)}:${(track.durationInSec % 60).toString().padStart(2, '0')}` : 'Unknown',
         author: track.user.name,
