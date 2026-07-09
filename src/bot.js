@@ -4,6 +4,8 @@ import { logger } from './logger.js';
 import { setupCommands } from './commands.js';
 import { splitMessage } from './utils.js';
 import { features } from './features.js';
+import { historyManager } from './history.js';
+import { generateResponse } from './ai.js';
 
 // Keep track of users currently waiting for a response
 const activeUsers = new Set();
