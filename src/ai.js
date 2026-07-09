@@ -103,7 +103,8 @@ export async function generateResponse(userId, userMessage, searchContext = '') 
         return "I apologize, but I am currently experiencing connection issues with my AI servers or the selected model is offline. Please try again in a moment. 🙏";
       }
       
-      logger.info('Retrying request...');
+      logger.info(`Retrying request with fallback model openrouter/free...`);
+      config.MODEL = 'openrouter/free';
       await new Promise(res => setTimeout(res, 2000)); // wait 2s before retry
     }
   }
